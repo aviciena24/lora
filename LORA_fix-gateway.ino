@@ -12,7 +12,8 @@
 const int csPin = 15;
 const int resetPin = 5;
 const int irqPin = 4;
-
+int c=0;
+int err=0;
 int recipient;
 byte sender, incomingLength;
 String dataSensor, node;
@@ -88,9 +89,8 @@ void loop() {
   receiveMessage(LoRa.parsePacket());
 
 
-
-  if(dataSensor.toInt() < 35 ) {
-    webhook.trigger(String(dataSensor), Random(2000), String(node));
+  if(atol(dataSensor) < 35 ) {
+    webhook.trigger(String(dataSensor), random(2000), String(node));
     int response = webhook.trigger();
 
     if(response == 200) {
@@ -100,6 +100,44 @@ void loop() {
     else
       Serial.println("Failed");
   }
+  c++;
+  if (c<50) {
+  pushData(dataSensor,random(2000));
+  c=0;
+  }
+}
+
+
+void pushData(String Value1, String Value2) {
+  String url="http://iot.smkn1adw.sch.id/add.php?sn=saqmx202&aqi=";
+  String aqiPUSH = String(Value1);
+  String penghubung = "&suhu=";
+  String suhuPUSH = String(Value2);
+  String joined = url+ suhuPUSH + penghubung + aqiPUSH; 
+  if (WiFi.status() == WL_CONNECTED) { //Check WiFi connection status 
+    HTTPClient http;  
+    
+    http.begin(joined);  //Specify request destination
+    int httpCode = http.GET();                                                                  //Send the request
+ 
+    if (httpCode > 0) { //Check the returning code
+ 
+    String payload = http.getString();
+    Serial.println(payload);
+
+    if (payload.indexOf("ok")>0){
+      Serial.println("Berhasil Sinkron");
+      //delay(1000);
+      err=0;
+      }else{
+        Serial.println("Gagal Sinkron");
+        err++;
+        }
+    }
+ 
+    http.end();   //Close connection
+  }
+
 }
 
 void receiveMessage(int packetSize) {
@@ -132,7 +170,7 @@ void receiveMessage(int packetSize) {
   delay(200); 
 
   dataSensor = incoming;
-  node = sender;
+  node = String(sender, HEX);
   Serial.print("Received data " + incoming);
   Serial.print(" from 0x" + String(sender, HEX));
   Serial.println(" to 0x" + String(recipient, HEX));
